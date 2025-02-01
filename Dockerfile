@@ -1,30 +1,38 @@
 # Build stage
 FROM node:18-alpine as build
 
+# Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package.json package-lock.json ./
+# Copy package files for efficient caching
+COPY package*.json ./
 
-# Install dependencies
+# Install dependencies with clean install for production
 RUN npm ci
 
-# Copy project files
+# Copy all project files
 COPY . .
 
 # Build the project
 RUN npm run build
 
-# Production stage
+# Production stage using lightweight nginx
 FROM nginx:alpine
 
-# Copy built assets from build stage
+# Copy the built files from build stage
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Copy nginx configuration if you have custom config
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Set up nginx configuration inline
+RUN echo 'server { \
+    listen 8080; \
+    root /usr/share/nginx/html; \
+    index index.html; \
+    location / { \
+        try_files $uri $uri/ /index.html; \
+    } \
+}' > /etc/nginx/conf.d/default.conf
 
-# Expose port 80
+# Expose port 8080
 EXPOSE 8080
 
 # Start nginx
